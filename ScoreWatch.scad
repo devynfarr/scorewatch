@@ -1,110 +1,160 @@
 use <gears.scad>
-
-// Misc
-fudge = 0.01; // used to clean up zero thickness surfaces after bool operations
-
+$fn = $preview ? 100 : 100; 
 // Gears
 mod=2;
 width=3;
-addendum=2.23;
+addendum=2.33;
+out_addendum=1.6;
 
 // Font
 textSize=5;
+textKern=1;
 w_letters=0.8;
+bezelSize=textSize+textKern;
 
-// Colors
+// Color
 digitColor="blue";
 bezelColor="lightblue";
 
-module polarDigit(digit=0, radius=0, angle=0) {
-	// digit is first translated by radius, then rotated by angle
-	// offsets expect single digit
-	
-	// Variables				
-	
-	// Entities
-	rotate([0, 0, angle])
-		translate([radius,-textSize/2,0])
-			linear_extrude(width+w_letters)
-				text(str(digit),size=textSize,halign="left");
-}
+function pitchRadius(modul, numTeeth) = modul * numTeeth/2;
 
 module pieSlice(swept_angle, radius, height){  
   rotate_extrude(angle=swept_angle) square([radius,height]);
 }
 
-// Ones Ring Gear
-// 36º per digit (3T)
-// 12º per tooth
+ones_teeth = 20;
+ones_pitchRadius = pitchRadius(mod, ones_teeth);
+tens_teeth = 8;
+tens_pitchRadius = pitchRadius(mod, tens_teeth);
 
-// Variables
-teeth=20;
-pitchDiameter = mod*teeth;
-pitchRadius = pitchDiameter/2;
-ID=teeth+addendum;
-OD=ID+textSize+3;
-	
 // Ones
-rotate([0,0,0]) {
+translate([0,0,0]) {
+	// Variables	
+	currentDigit=9;
+	ones_max_count=9;	
+	ones_OD=ones_pitchRadius+out_addendum;
+	OD=ones_pitchRadius;
+	ID=OD-bezelSize;
+	increment=360/(ones_max_count+1);
 	
-	union(){           
-		translate([0,0,width]) {
-			// Digits
-			color(digitColor) {
-				for(i=[0:1:9]){
-					polarDigit(digit=i,radius=ID+2,angle=i*36);
-				}
-			}
+	// Entities	
+	rotate([0,0,-currentDigit*increment]) {
+  
 		
-			// Bezel		
-			color(bezelColor) {		
-				difference() {
-					cylinder(width,OD,OD);
-					cylinder(2*width+2*fudge,ID,ID,true);
+		// Entities
+		union(){
+			translate([0,0,0]) {            
+				// Ones digits
+				color(digitColor) {
+					for(i=[0:1:ones_max_count]){
+						rotate([0, 0, increment*i])
+							translate([-ones_pitchRadius+textKern,-textSize/2,0])
+								linear_extrude(width+w_letters)
+									text(str(i),size=textSize,halign="left");
+					}
+				}
+				
+				// Ones Bezel
+				color(bezelColor) {
+					translate([0,0,0]) {
+						difference() {
+							cylinder(width,OD,OD);
+							translate([0,0,-0.01])
+								cylinder(2*width,ID,ID,false);
+						}
+					}
+				}
+			}	
+			
+			//Ones Gears
+			color("green") {
+				translate([0,0,-width*2]) {
+					rotate([0,0,9]) {						
+						difference() {
+							intersection() {
+								spur_gear(modul=mod, tooth_number=ones_teeth, width=width*2, bore=3, pressure_angle=20, helix_angle=0, optimized=true);
+								cylinder(width*2, ones_OD, ones_OD, false);
+							}
+							rotate([0,0,180-increment/4]) {
+								difference() {
+									pieSlice(360-increment,ones_OD,width*2);
+									cylinder(width*2,ones_pitchRadius-addendum,ones_pitchRadius-addendum,false);
+								}
+							}
+						}						
+					}
+					
+					rotate([0,0,180-increment/4]) {
+						difference() {
+							pieSlice(360-increment/2,ones_OD,width);
+							cylinder(width,ones_pitchRadius-addendum,ones_pitchRadius-addendum,false);
+						}
+					}
 				}			
 			}
 		}
-		
-		// Gear
-		difference() {
-			ring_gear(modul=mod, tooth_number=teeth, width=width, rim_width=OD-ID, pressure_angle=20, helix_angle=0);				
-			rotate([0,0,180+18]) {
-				pieSlice(swept_angle=360-18, radius=ID, height=width*3);					
-			}
-		}	
 	}
 }
 
-// Carry
-// Variables
-carry_teeth = 8;
-carry_pitchDiameter = mod*carry_teeth;
-carry_pitchRadius = carry_pitchDiameter/2;
-carry_C=(pitchDiameter-carry_pitchDiameter)/2;	
-
-// Entities
-translate([-carry_C,0,-width]) {
-	rotate([0,0,0]) {
-		spur_gear(modul=mod, tooth_number=carry_teeth, width=2*width, bore=4, pressure_angle=20, helix_angle=0, optimized=true);
-	}
-}
-
-
-// Tens Gear
-// 60º per digit (2T)
-// 30º per tooth
-translate([0,0,-width]) {
+// Tens
+translate([0,0,0]) {
 	// Variables
-	tens_teeth = 12;
-	tens_pitchDiameter = mod*tens_teeth;
-	tens_pitchRadius = tens_pitchDiameter/2;
-	tens_C=-carry_C+(tens_pitchDiameter+carry_pitchDiameter)/2;	
-	
-	// Entities
-	translate([tens_C,0,0]) {
-		rotate([0,0,15]) {
-			spur_gear(modul=mod, tooth_number=tens_teeth, width=width, bore=4, pressure_angle=20, helix_angle=0, optimized=true);
+	currentDigit=0;
+	tens_max_count=3;
+	tens_OD=tens_pitchRadius+out_addendum;
+	C=ones_pitchRadius+tens_pitchRadius;	
+	OD=tens_pitchRadius;
+	ID=OD-bezelSize;	
+	increment = 360/(tens_max_count+1);
+		
+	translate([-C,0,0]) {
+		rotate([0,0,-currentDigit*increment]) {		
+							
+			// Entities	
+			union() {
+				translate([0,0,0]) {							
+					// Tens Digits
+					color(digitColor) {
+						for(i=[0:1:tens_max_count]){
+							rotate([0, 0, -increment*i])
+								translate([tens_pitchRadius-textKern,-textSize/2,0])
+									linear_extrude(width+w_letters)
+										text(str(i),size=textSize,halign="right");
+						}
+					}
+					
+					//Tens Bezel
+					color(bezelColor) {						
+						difference() {
+							cylinder(width,OD,OD);
+							translate([0,0,-0.01])
+								cylinder(2*width,ID,ID,false);
+						}						
+					}	
+				}
+				
+				// Tens Gear
+				color("red") {
+					translate([0,0,-width*2]) {
+						difference() {
+							intersection() {
+								spur_gear(modul=mod, tooth_number=tens_teeth, width=width*2, bore=3, pressure_angle=20, helix_angle=0, optimized=true);
+								cylinder(width*2, tens_OD, tens_OD, false);							
+							}
+							difference() {
+								union() {
+									for(i=[0:1:3]) {			
+										rotate([0,0,-22.5+i*increment]) {						
+											pieSlice(45,tens_pitchRadius+addendum,width);
+										}
+									}
+								}
+								cylinder(h=width+0.8,r1=tens_pitchRadius-addendum, r2=tens_pitchRadius-addendum);								
+							}
+						}
+					}
+				}				
+			}
 		}
 	}
 }
-
