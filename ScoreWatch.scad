@@ -1,14 +1,17 @@
 use <gears.scad>
+include <BOSL2/std.scad>
 $fn = $preview ? 100 : 100; 
 
 // visibility options
 
 showOnesWheel = true;
 showTensWheel = true;
-showBackPlate = false;
+showEnclosure = true;
+showBackPlate = true;
+showCover = true;
 showBezels = true;
 
-onesDigit = 5;
+onesDigit = 0;
 tensDigit = 0;
 
 // print parameters
@@ -16,6 +19,7 @@ layerHeight = 0.2; // mm
 textHeight = 2; // number of printed layers
 bezelHeight = 4; // number of printed layers
 gearHeight = 3; // number of printed layers
+plateLayers = 4; // number of printed layers
 
 // Gears
 mod=2; // modulus
@@ -43,8 +47,12 @@ module pieSlice(swept_angle, radius, height){
 
 tens_teeth = 8;
 tens_pitchRadius = pitchRadius(mod, tens_teeth);
+tens_axle_diameter=3;
+
 ones_teeth = 20;
 ones_pitchRadius = pitchRadius(mod, ones_teeth);
+
+C=ones_pitchRadius-tens_pitchRadius;
 
 // Ones Wheel
 if(showOnesWheel) {
@@ -133,11 +141,9 @@ if(showOnesWheel) {
 if (showTensWheel) {
 	translate([0,0,0]) {
 		// Variables
-		currentDigit=tensDigit;
-		tens_axle_diameter=3;
+		currentDigit=tensDigit;		
 		tens_max_count=3;
-		tens_OD=tens_pitchRadius+out_addendum;
-		C=ones_pitchRadius-tens_pitchRadius;	
+		tens_OD=tens_pitchRadius+out_addendum;		
 		OD=tens_pitchRadius;
 		ID=OD-bezelSize;	
 		increment = 360/(tens_max_count+1);
@@ -218,14 +224,82 @@ if (showTensWheel) {
 	}
 }
 
-// Backplate
+//Enclosure
+if (showEnclosure) {
+	axle_clearance=0.2;
+	width=55;
+	length=55;
 
-color("darkblue") {
-	
-	// plate
-	
-	// ones axle
-	
-	// tens axle
+	// Backplate
+	if (showBackPlate) {
+		translate([0,0,-(2*gearHeight*layerHeight+plateLayers*layerHeight)]) {
+			
 
+			height=2*gearHeight*layerHeight+bezelHeight*layerHeight+plateLayers*layerHeight;		
+			depth=2*gearHeight*layerHeight+bezelHeight*layerHeight;
+			ones_axle_radius = ones_pitchRadius + bezelSize + axle_clearance;
+			wall=bezelSize/2;	
+			
+			difference() {
+				// plate
+				translate([0,0,0]) {
+					cylinder(h=height,r1=ones_axle_radius+wall, r2=ones_axle_radius+wall);		
+					//cuboid([width, length, height], rounding=ones_axle_radius, edges="Z", anchor=[0,0,-1]);
+				}
+				
+				// ones axle
+				translate([0,0,plateLayers*layerHeight]) {			
+					cylinder(h=height,r1=ones_axle_radius, r2=ones_axle_radius);
+				}
+				
+				// thumbwheel
+				translate([width/2-5,-length/2,-0.01]) {
+					cube([width,length,height+2*0.01],center=false);
+				}
+			}
+			
+			// tens axle
+			color("darkblue") {
+				translate([C,0,0]) {
+					cylinder(h=height,r1=(tens_axle_diameter/2 - axle_clearance), r2=(tens_axle_diameter/2 - axle_clearance));
+				}
+			}
+			
+			// enclosure fastener
+			translate([0,0,0]) {
+				cylinder(h=height+bezelThickness,r1=(tens_axle_diameter/2 - axle_clearance), r2=(tens_axle_diameter/2 - axle_clearance));
+			}
+			
+		}
+	}
+	// Cover
+	if (showCover) {
+		//color("white") {
+			translate([0,0,bezelThickness]) {
+				radius=ones_pitchRadius + bezelSize + axle_clearance + bezelSize/2;
+				
+				difference() {		
+					translate([0,0,0]) {
+						cylinder(h=bezelThickness,r1=radius, r2=radius);
+					}
+					
+					// thumbwheel
+					translate([width/2-5,-length/2,-0.01]) {
+						cube([width,length,2*bezelThickness+2*0.01],center=false);
+					}
+					
+					// window
+					translate([ones_pitchRadius-bezelSize,-0.5*1.5*textSize,-0.01]) {
+						//cube([2*bezelSize,1.5*textSize,2*bezelThickness+2*0.01],center=false);
+						cuboid([2*bezelSize,1.5*textSize,2*bezelThickness+2*0.01], rounding=textSize/4, edges="Z", anchor=[-1,-1,-1]);
+					}
+					
+					// enclosure fastener
+					translate([0,0,-0.01]) {
+						cylinder(h=bezelThickness+2*0.01,r1=(tens_axle_diameter/2), r2=(tens_axle_diameter/2));
+					}
+				}
+			}
+		//}
+	}
 }
